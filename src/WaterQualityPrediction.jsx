@@ -14,7 +14,7 @@ const STATIONS = [
   { id: 'ls03', name: 'LS03 Upper Lang Suan' },
   { id: 'tp01', name: 'TP01 Lower Tapee' },
   { id: 'tp04', name: 'TP04 Phum Duang' },
-  { id: 'tp11', name: 'TP11 Upper Tapee' },
+  { id: 'tp011', name: 'TP11 Upper Tapee' }, // Corrected ID to match file 'TP011'
   { id: 'pn01', name: 'PN01 Pak Phanang' },
   { id: 'sk01', name: 'SK01 Thale Noi' },
   { id: 'sk06', name: 'SK06 Thalaluang' },
@@ -52,12 +52,14 @@ export default function ForecastDashboard() {
     setLoading(true);
     setIsPredicted(true); // แสดงส่วนกราฟ
     try {
-      const histPath = `prepared/${station.id.toUpperCase()}_prepared.csv`;
-      const forePath = `forecasts/${station.id.toUpperCase()}_monthly_forecast.csv`;
+      // Use absolute paths to avoid relative path issues
+      const histPath = `/prepared/${station.id.toUpperCase()}_prepared.csv`;
+      const forePath = `/forecasts/${station.id.toUpperCase()}_monthly_forecast.csv`;
 
+      // Catch specific errors for better debugging if needed
       const [histRaw, foreRaw] = await Promise.all([
-        fetchCSV(histPath).catch(() => []),
-        fetchCSV(forePath),
+        fetchCSV(histPath).catch((e) => { console.warn("Hist load failed", e); return []; }),
+        fetchCSV(forePath).catch((e) => { console.error("Forecast load failed", e); throw e; }),
       ]);
 
       const hist = histRaw.map((r) => ({
@@ -78,7 +80,8 @@ export default function ForecastDashboard() {
 
       setChartData([...hist, ...fore]);
     } catch (e) {
-      console.error(e);
+      console.error("Data loading error:", e);
+      setChartData([]); // Clear data on error
     } finally {
       setLoading(false);
     }
@@ -88,10 +91,10 @@ export default function ForecastDashboard() {
   const forecastOnly = chartData.filter(d => d.forecast !== null);
 
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-900 font-sans">
-      
+    <div className="flex flex-col lg:flex-row min-h-screen bg-slate-50 text-slate-900 font-sans">
+
       {/* SIDEBAR */}
-      <aside className="w-80 bg-white border-r border-slate-200 flex flex-col shrink-0">
+      <aside className="w-full lg:w-80 bg-white border-b lg:border-b-0 lg:border-r border-slate-200 flex flex-col shrink-0">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
           <Waves className="w-6 h-6 text-blue-600" />
           <h1 className="text-xl font-black tracking-tight">AquaPredict</h1>
@@ -99,9 +102,9 @@ export default function ForecastDashboard() {
         <div className="p-6 space-y-8 flex-1">
           <SelectBox label="Station" value={station.id} options={STATIONS} onChange={(v) => { setStation(STATIONS.find(s => s.id === v)); setIsPredicted(false); }} />
           <SelectBox label="Parameter" value={param.id} options={PARAMETERS} onChange={(v) => { setParam(PARAMETERS.find(p => p.id === v)); setIsPredicted(false); }} />
-          
+
           {/* เพิ่มปุ่ม Predict */}
-          <button 
+          <button
             onClick={handlePredict}
             className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 active:scale-95"
           >
@@ -110,41 +113,49 @@ export default function ForecastDashboard() {
           </button>
 
           <div className="bg-blue-50 rounded-xl p-4 space-y-2">
-             <h4 className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">About this station</h4>
-             <p className="text-xs text-slate-600 leading-relaxed font-medium">Showing predicted water quality trends based on deep learning models.</p>
+            <h4 className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">About this station</h4>
+            <p className="text-xs text-slate-600 leading-relaxed font-medium">Showing predicted water quality trends based on deep learning models.</p>
           </div>
         </div>
-        <div className="p-6 border-t border-slate-100">
+        <div className="p-6 border-t border-slate-100 hidden lg:block">
           <Link to="/" className="flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-blue-600">
+            <ArrowLeft className="w-4 h-4" /> Back to Map
+          </Link>
+        </div>
+        {/* Mobile Back Link */}
+        <div className="p-6 border-t border-slate-100 lg:hidden">
+          <Link to="/" className="flex items-center justify-center gap-2 text-sm font-bold text-slate-400 hover:text-blue-600 w-full py-2">
             <ArrowLeft className="w-4 h-4" /> Back to Map
           </Link>
         </div>
       </aside>
 
       {/* MAIN VIEW */}
-      <main className="flex-1 p-8 overflow-hidden">
+      <main className="flex-1 p-4 lg:p-8 overflow-x-hidden overflow-y-auto">
         {isPredicted ? (
-          <div className="h-full flex flex-col gap-6 animate-in fade-in duration-500">
+          <div className="h-full flex flex-col gap-6">
             {/* Header */}
-            <header className="flex justify-between items-end">
+            <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4">
               <div>
                 <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 px-2 py-1 rounded">Forecasting Module</span>
-                <h2 className="text-4xl font-black text-slate-800 mt-2 tracking-tight">{param.name}</h2>
+                <h2 className="text-2xl lg:text-4xl font-black text-slate-800 mt-2 tracking-tight">{param.name}</h2>
                 <p className="text-sm font-bold text-slate-400 mt-1">{station.name}</p>
               </div>
-              <div className="bg-white px-6 py-3 rounded-2xl border border-slate-200 shadow-sm text-right">
+              <div className="bg-white px-6 py-3 rounded-2xl border border-slate-200 shadow-sm text-right self-end lg:self-auto">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Current Unit</p>
                 <p className="text-xl font-black text-blue-600">{param.unit}</p>
               </div>
             </header>
 
             {/* Content Grid */}
-            <div className="flex-1 grid grid-cols-3 gap-6 min-h-0">
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
               {/* GRAPH CARD */}
-              <div className="col-span-2 bg-white border border-slate-200 rounded-3xl p-8 shadow-sm relative flex flex-col">
+              <div className="col-span-1 lg:col-span-2 bg-white border border-slate-200 rounded-3xl p-4 lg:p-8 shadow-sm relative flex flex-col">
                 {loading && <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center font-bold text-blue-600">Loading...</div>}
-                <div className="flex-1 w-full mt-4">
-                  <ResponsiveContainer width="100%" height="100%">
+
+                {/* 1. CHART VIEW: Hidden on Mobile Portrait. Visible on Mobile Landscape OR Tablet/Desktop (md+) */}
+                <div className="hidden landscape:block md:block chart-container w-full min-w-0" style={{ height: 450 }}>
+                  <ResponsiveContainer width="99%" height="100%">
                     <AreaChart data={chartData}>
                       <defs>
                         <linearGradient id="areaColor" x1="0" y1="0" x2="0" y2="1">
@@ -153,8 +164,8 @@ export default function ForecastDashboard() {
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} tickFormatter={(v) => v?.split('-').slice(1).join('/')} />
-                      <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} />
+                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} tickFormatter={(v) => v?.split('-').slice(1).join('/')} />
+                      <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
                       <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
                       <Area type="monotone" dataKey="actual" stroke={param.color} strokeWidth={4} fill="url(#areaColor)" dot={false} connectNulls />
                       <Area type="monotone" dataKey="forecast" stroke={param.color} strokeDasharray="8 8" strokeWidth={4} fill="none" dot={false} connectNulls />
@@ -195,10 +206,10 @@ export default function ForecastDashboard() {
         ) : (
           /* Empty State เมื่อยังไม่ได้กด Predict */
           <div className="h-full flex flex-col items-center justify-center text-slate-400 border-4 border-dashed border-slate-100 rounded-[40px]">
-             <div className="bg-white p-8 rounded-full shadow-xl mb-6">
-                <Waves className="w-16 h-16 text-blue-100 animate-pulse" />
-             </div>
-             <p className="text-xl font-black text-slate-300 uppercase tracking-widest">Select station and click predict</p>
+            <div className="bg-white p-8 rounded-full shadow-xl mb-6">
+              <Waves className="w-16 h-16 text-blue-100 animate-pulse" />
+            </div>
+            <p className="text-xl font-black text-slate-300 uppercase tracking-widest">Select station and click predict</p>
           </div>
         )}
       </main>
